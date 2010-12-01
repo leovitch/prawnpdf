@@ -1,0 +1,172 @@
+Prawnpdf
+========
+
+PrawnPDF is a Ruby module and also Rails plugin which implements
+the well-known FPDF API for generating PDF files on top of the
+Prawn library.
+
+It's really not meant for developing new code; in general,
+using the Prawn API directly is far superior.  However, in
+the cases below it may be handy.
+
+1.  You have a lot of FPDF-dependent code, but you want to
+	support CJK languages or take advantage of other 
+	font infrastructure in Prawn.
+	
+	This is actually why this module was developed;
+	I needed Japanese PDF export in Redmine, and didn't
+	want to port the extensive PDF-generating code
+	itself (not least because of the size of the diff
+	it would generate).
+	
+2.	Although you could port the code to Prawn, you would have 
+	a version-dependent solution.
+	
+	Again, I wanted to make a patch for Redmine that
+	would work on any version from 1.0 forward.  There
+	have been a lot of changes in the Redmine PDF code
+	because of improvements in other things; in order to
+	stay out of other people's way, I decided to just
+	hijack the existing API.
+
+Again, before Prawn devotees send hate mail, I totally recommend
+writing new from-scratch code directly against the Prawn API.
+
+That said, to a limited extent, you can access some Prawn features
+from PrawnPDF programs; the underlying Prawn::Document
+object is available via the :pdoc method.  You can use
+that for tiny things like being able to set the line dash;
+however, Prawn and FPDF have very different layout 
+algorithms so any large-scale mix-and-matching is going
+to give you a lot of headaches.
+
+When run independently, PrawnPDF has no dependencies other
+than Prawn itself.  
+
+Note: PrawnPDF will not work with the current Prawn GEM, 0.8.4.
+I was working with Prawn tip as of November 30, 2010.
+See below for more details.  Also PrawnPDF had to resort to
+some eggregious subclassing to make some of the details of
+the FPDF layout algorithm work.  I've posted most of these to
+the Prawn mailing lists to hunt for a resolution, but there's 
+no guarantee that will work into the indefinite future since 
+Prawn is pre-1.0.
+
+Installation and Test - Standalone
+==================================
+I've only tested PrawnPDF on Mac OS X and Linux.  It shouldn't
+have any particular system dependencies, but the installation
+instructions are shell-dependent because of that.
+
+To use PrawnPDF, first make sure you have a working copy of Prawn.
+You should not install Prawn as a gem just yet, so the instructions
+below assume you're going to put Prawn in /usr/local/src.
+	cd /usr/local/src
+	git clone https://github.com/sandal/prawn.git
+	cd prawn
+	# If you want to live on the edge, skip this, but here's 
+	# the exact commit I used for development:
+	git checkout f7cd1c7c9629b4a897cc76bdf016ad320e52fedb
+	# Now the submodules
+	git submodule init
+	git submodule update
+	# Now make sure your Prawn works
+	cd examples/text
+	ruby simple_text.rb
+	open simple_text.pdf # Or otherwise verify the file is OK
+Alright, your Prawn works!  You're mostly done.
+	cd /usr/local/src
+	git clone httpd://github.com/leovitch/prawnpdf.git
+	cd prawnpdf
+	cd test
+	ruby -I /usr/local/src/prawn/lib tutorial.rb
+	open test_output/*.pdf # Or otherwise verify the files
+						   # in test_output look like the ones
+						   # in reference_output
+
+Example - Standalone
+====================
+
+	cd /usr/local/src/prawnpdf/lib
+	irb -I /usr/local/src/prawn/lib
+	
+	require 'prawnpdf'
+	pdf = PrawnPDF::PPDF.new
+	pdf.AddPage
+	pdf.SetFont(nil,"B",36)
+	pdf.Write(nil,"Hello World")
+	pdf.Output("/tmp/HelloWorld.pdf")
+
+See test/tutorial.rb for ports of all of the FPDF tutorials.
+
+Installation and Test -- Rails
+==============================
+
+Installing as a Rails plugin is about the same except for where
+the directories go.  The odd thing I found is that you have to 
+make up a version number for the Prawn release to get it to function
+in the gems directory (and it didn't seem to to work if placed
+in the plugins directory).
+
+	# Assuming you're already in the root of your Rails app
+	cd vendors/gems
+	# My made-up "release number"
+	git clone https://github.com/sandal/prawn.git prawn-0.11.1
+	cd prawn-0.11.1
+	# If you want to live on the edge, skip this:
+	git checkout f7cd1c7c9629b4a897cc76bdf016ad320e52fedb
+	# Now the submodules
+	git submodule init
+	git submodule update
+	# Now make sure your Prawn works
+	cd examples/text
+	ruby simple_text.rb
+	
+PrawnPDF itself installs in the plugins directory, of course.
+
+	cd ../../../../plugins/
+	git clone httpd://github.com/leovitch/prawnpdf.git
+	# run tests
+	cd prawnpdf
+	rake
+	open test/test_output/TestIssue.pdf
+	# ...or otherwise verify it's the same as 
+	# test/reference_output/TestIssue.pdf
+	
+Switching your RFPDF Rails app to PrawnPDF
+==========================================
+In general, this should be as simple as replacing
+	require 'rfpdf/fpdf'
+	pdf = FPDF.new
+with
+	require 'prawnpdf'
+	pdf = PrawnPDF::RPDF.new
+
+You should probably update any locales that might 
+need their own font. 
+
+PrawnPDF supports configuring each language with a 
+reasonable set of normal, bold, italic, and bold italic
+default fonts.  Set these constants in your locale
+files to the pathname of a TTF font on your server:
+	:default_pdf_normal_font
+	:default_pdf_bold_font
+	:default_pdf_italic_font
+	:default_pdf_bold_italic_font
+No preprocessing or other manipulation of the fonts
+is needed.
+
+The above are all optional; if you don't set any of 
+them, you'll just use Helvetica.  Also, if in a particular 
+locale you only set :default_pdf_normal_font (because that's
+all you have), it will be used for all four faces.
+	
+Example - Rails
+===============
+Well, this isn't something you're going to type at the console.
+Take a look at the self-test in test/prawnpdf_test.rb for a 
+reasonably extensive example.
+
+
+
+Copyright (c) 2010 Leo Hourvitz, released under the MIT license
